@@ -416,6 +416,12 @@ const presets = {
     swell2Height:0.5, swell2Period:4, swell2Dir:20,
     swell3Height:0, swell3Period:8, swell3Dir:0
   },
+  gorge: {
+    chopHeight:0.3, chopDir:270,
+    swell1Height:0.5, swell1Period:7, swell1Dir:270,
+    swell2Height:0.3, swell2Period:9, swell2Dir:250,
+    swell3Height:0.15, swell3Period:12, swell3Dir:290
+  },
   messy: {
     chopHeight:1.4, chopDir:60,
     swell1Height:2.5, swell1Period:9, swell1Dir:290,
@@ -1137,16 +1143,14 @@ function rebuildTerrain(presetName) {
       const startPos = findRiverStartPosition();
       foil.x = startPos.x; foil.z = startPos.z; foil.heading = startPos.heading;
       foil.speed = 3;
-      applyPreset('river');
+      applyPreset('gorge');
       oceanMat.uniforms.uRiverMask.value = realTerrainRiverMask;
       oceanMat.uniforms.uUseRiverMask.value = 1;
       oceanMat.uniforms.uRiverBounds.value.set(-RT_WORLD_W/2, -RT_WORLD_D/2, RT_WORLD_W/2, RT_WORLD_D/2);
       oceanMat.transparent = true;
       oceanMat.depthWrite = true;
       oceanMat.needsUpdate = true;
-      const sx = RT_WORLD_W / OCEAN_SIZE, sz = RT_WORLD_D / OCEAN_SIZE;
-      oceanMesh.scale.set(sx, 1, sz);
-      oceanMat.uniforms.uOceanScale.value.set(sx, 1, sz);
+      oceanMesh.scale.set(RT_WORLD_W / OCEAN_SIZE, 1, RT_WORLD_D / OCEAN_SIZE);
       oceanMesh.position.set(0, RT_WATER_Y, 0);
     });
   } else {
@@ -1157,7 +1161,6 @@ function rebuildTerrain(presetName) {
       oceanMat.transparent = false;
       oceanMat.needsUpdate = true;
       oceanMesh.scale.set(1, 1, 1);
-      oceanMat.uniforms.uOceanScale.value.set(1, 1, 1);
       oceanMesh.position.y = 0;
     });
   }
@@ -1616,13 +1619,11 @@ const oceanMat = new THREE.ShaderMaterial({
     uFogColor:{value:new THREE.Color(.55,.7,.85)},uFogSunColor:{value:new THREE.Color(.8,.75,.6)},
     uRiverMask:{value:null},uUseRiverMask:{value:0},
     uRiverBounds:{value:new THREE.Vector4(-RT_WORLD_W/2, -RT_WORLD_D/2, RT_WORLD_W/2, RT_WORLD_D/2)},
-    uOceanScale:{value:new THREE.Vector3(1,1,1)},
   },
   vertexShader: `
     precision highp float;
     uniform float uTime;uniform float uChopHeight;uniform vec2 uChopDir;
     uniform vec4 uSwell1,uSwell2,uSwell3;
-    uniform vec3 uOceanScale;
     varying vec3 vWorldPos;varying vec3 vNormal;varying float vFoam;varying float vHeight;
     vec2 hash2(vec2 p){p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));return fract(sin(p)*43758.5453)*2.-1.;}
     float noise(vec2 p){vec2 i=floor(p),f=fract(p),u=f*f*(3.-2.*f);return mix(mix(dot(hash2(i),f),dot(hash2(i+vec2(1,0)),f-vec2(1,0)),u.x),mix(dot(hash2(i+vec2(0,1)),f-vec2(0,1)),dot(hash2(i+vec2(1,1)),f-vec2(1,1)),u.x),u.y);}
@@ -1636,33 +1637,23 @@ const oceanMat = new THREE.ShaderMaterial({
     }
     void main(){
       vec3 pos=(modelMatrix*vec4(position,1.0)).xyz;
-      // When ocean is scaled (Gorge HD), use local-space coords for wave evaluation
-      // so vertex density (~1.56m) can resolve short-wavelength waves.
-      // When unscaled (normal modes), use world-space coords as before.
-      bool scaled = uOceanScale.x > 1.5;
-      vec2 waveXZ = scaled ? position.xz : pos.xz;
       vec3 d=vec3(0),T=vec3(1,0,0),B_=vec3(0,0,1),t1,b1;
-      if(uSwell1.w>.01){d+=gw(waveXZ,uSwell1.xy,uSwell1.z,uSwell1.w,uTime,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
-        d+=gw(waveXZ,uSwell1.xy*1.07,uSwell1.z*.7,uSwell1.w*.22,uTime*1.05,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);}
-      if(uSwell2.w>.01){d+=gw(waveXZ,uSwell2.xy,uSwell2.z,uSwell2.w,uTime,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
-        d+=gw(waveXZ,uSwell2.xy*.95,uSwell2.z*.65,uSwell2.w*.2,uTime*.98,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);}
-      if(uSwell3.w>.01){d+=gw(waveXZ,uSwell3.xy,uSwell3.z,uSwell3.w,uTime,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);}
+      if(uSwell1.w>.01){d+=gw(pos.xz,uSwell1.xy,uSwell1.z,uSwell1.w,uTime,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
+        d+=gw(pos.xz,uSwell1.xy*1.07,uSwell1.z*.7,uSwell1.w*.22,uTime*1.05,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);}
+      if(uSwell2.w>.01){d+=gw(pos.xz,uSwell2.xy,uSwell2.z,uSwell2.w,uTime,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
+        d+=gw(pos.xz,uSwell2.xy*.95,uSwell2.z*.65,uSwell2.w*.2,uTime*.98,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);}
+      if(uSwell3.w>.01){d+=gw(pos.xz,uSwell3.xy,uSwell3.z,uSwell3.w,uTime,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);}
       if(uChopHeight>.01){float ch=uChopHeight;vec2 cd=uChopDir;
-        d+=gw(waveXZ,cd,3.,ch*.5,uTime,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
-        d+=gw(waveXZ,vec2(cd.y,-cd.x)*.8+cd*.6,2.2,ch*.35,uTime*1.1,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
-        d+=gw(waveXZ,cd*.7+vec2(-cd.y,cd.x)*.7,1.8,ch*.25,uTime*1.3,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
-        d+=gw(waveXZ,cd*.9+vec2(cd.y,-cd.x)*.4,1.3,ch*.18,uTime*.9,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);}
-      float det=fbm(waveXZ*mix(.08,.02,smoothstep(50.,400.,length(waveXZ)))+uTime*.15)*.3+fbm(waveXZ*.03-uTime*.08)*.15;
+        d+=gw(pos.xz,cd,3.,ch*.5,uTime,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
+        d+=gw(pos.xz,vec2(cd.y,-cd.x)*.8+cd*.6,2.2,ch*.35,uTime*1.1,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
+        d+=gw(pos.xz,cd*.7+vec2(-cd.y,cd.x)*.7,1.8,ch*.25,uTime*1.3,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);
+        d+=gw(pos.xz,cd*.9+vec2(cd.y,-cd.x)*.4,1.3,ch*.18,uTime*.9,t1,b1);T+=t1-vec3(1,0,0);B_+=b1-vec3(0,0,1);}
+      float det=fbm(pos.xz*mix(.08,.02,smoothstep(50.,400.,length(pos.xz)))+uTime*.15)*.3+fbm(pos.xz*.03-uTime*.08)*.15;
       d.y+=det*(uChopHeight+.2);
-      if(scaled){
-        // Scale XZ displacement to match stretched mesh; Y stays in meters
-        pos+=vec3(d.x*uOceanScale.x, d.y, d.z*uOceanScale.z);
-      } else {
-        pos+=d;
-      }
+      pos+=d;
       vNormal=normalize(cross(B_,T));if(vNormal.y<0.)vNormal=-vNormal;
       float jac=T.x*B_.z-T.z*B_.x;vFoam=smoothstep(.3,-.1,jac)*.8;
-      vFoam+=smoothstep(.4,.8,fbm(waveXZ*.15+uTime*.2))*.2*uChopHeight;vFoam=clamp(vFoam,0.,1.);
+      vFoam+=smoothstep(.4,.8,fbm(pos.xz*.15+uTime*.2))*.2*uChopHeight;vFoam=clamp(vFoam,0.,1.);
       vWorldPos=pos;vHeight=d.y;
       gl_Position=projectionMatrix*viewMatrix*vec4(pos,1.0);
     }`,
@@ -2184,16 +2175,9 @@ function animate(){
   const turnFromRoll = foil.roll * 2.2 * getVal('sbTurnSpeed') * Math.min(1, foil.speed / 4);
   foil.heading -= turnFromRoll * dt;
 
-  // Use local-space coords for wave calc when ocean is scaled (Gorge HD)
-  // to match GPU vertex shader which evaluates Gerstner in local space
-  let wavePx = foil.x, wavePz = foil.z;
-  if (realTerrainMesh) {
-    wavePx = foil.x / (RT_WORLD_W / OCEAN_SIZE);
-    wavePz = foil.z / (RT_WORLD_D / OCEAN_SIZE);
-  }
-  let wH=getWaveHeight(wavePx,wavePz,t);
+  let wH=getWaveHeight(foil.x,foil.z,t);
   if (realTerrainMesh) wH += RT_WATER_Y;
-  const slope=getWaveSlope(wavePx,wavePz,t);
+  const slope=getWaveSlope(foil.x,foil.z,t);
   const mx=Math.sin(foil.heading),mz=Math.cos(foil.heading);
   const slopeDot=mx*slope.dhdx+mz*slope.dhdz;
   // Cross-slope: perpendicular component of slope relative to travel
