@@ -974,6 +974,52 @@ let realTerrainSatTex = null;
 let realTerrainHmImg = null;
 let realTerrainRiverMask = null; // THREE.CanvasTexture — white=water, black=land
 
+// ═══════════════════════════
+// REAL TERRAIN — per-location configurations (must be before rebuildTerrain)
+// ═══════════════════════════
+const terrainConfigs = {
+  gorge: {
+    label: 'Columbia River Gorge',
+    heightmap: 'terrain-data/gorge_heightmap_1024.png',
+    satellite: 'terrain-data/gorge_satellite_2048.jpg',
+    elevMin: 24.0,
+    elevMax: 1090.1,
+    worldW: 14382,   // meters east-west
+    worldD: 11054,   // meters north-south
+    waterY: 6.0,     // ~30m real elevation → 6m in scene
+    waterThresh: 12,  // heightmap pixel ≤ this = water
+    useRiverMask: true,
+    preset: 'gorge',
+    startPos: null     // auto-detect from heightmap
+  },
+  maliko: {
+    label: 'Maliko Run, Maui',
+    heightmap: 'terrain-data/maliko_heightmap_1024.png',
+    satellite: 'terrain-data/maliko_satellite_2048.jpg',
+    elevMin: 0.0,
+    elevMax: 3055.5,
+    worldW: 75967,   // meters east-west (full Maui island)
+    worldD: 51207,   // meters north-south
+    waterY: 0.0,     // sea level
+    waterThresh: 2,   // heightmap pixel ≤ this = water (ocean)
+    useRiverMask: true,
+    preset: 'clean',
+    // Start offshore Maliko Gulch, heading west toward Kahului
+    startPos: { x: -5310, z: 22201, heading: Math.PI }
+  }
+};
+
+// Active terrain config — set when switching locations
+let activeTerrainCfg = terrainConfigs.gorge;
+
+// Convenience accessors (used throughout the code)
+function RT_ELEV_MIN() { return activeTerrainCfg.elevMin; }
+function RT_ELEV_MAX() { return activeTerrainCfg.elevMax; }
+function RT_ELEV_RANGE() { return activeTerrainCfg.elevMax - activeTerrainCfg.elevMin; }
+function RT_WORLD_W() { return activeTerrainCfg.worldW; }
+function RT_WORLD_D() { return activeTerrainCfg.worldD; }
+function RT_WATER_Y() { return activeTerrainCfg.waterY; }
+
 // ── Background presets — different terrain configurations ──
 const bgPresets = {
   'ocean-islands': {
@@ -1328,50 +1374,6 @@ function removePanoCylinder() { removePanoBackdrop(); }
 // ═══════════════════════════
 // REAL TERRAIN — heightmap + satellite imagery
 // ═══════════════════════════
-// Per-location terrain configurations
-const terrainConfigs = {
-  gorge: {
-    label: 'Columbia River Gorge',
-    heightmap: 'terrain-data/gorge_heightmap_1024.png',
-    satellite: 'terrain-data/gorge_satellite_2048.jpg',
-    elevMin: 24.0,
-    elevMax: 1090.1,
-    worldW: 14382,   // meters east-west
-    worldD: 11054,   // meters north-south
-    waterY: 6.0,     // ~30m real elevation → 6m in scene
-    waterThresh: 12,  // heightmap pixel ≤ this = water
-    useRiverMask: true,
-    preset: 'gorge',
-    startPos: null     // auto-detect from heightmap
-  },
-  maliko: {
-    label: 'Maliko Run, Maui',
-    heightmap: 'terrain-data/maliko_heightmap_1024.png',
-    satellite: 'terrain-data/maliko_satellite_2048.jpg',
-    elevMin: 0.0,
-    elevMax: 3055.5,
-    worldW: 75967,   // meters east-west (full Maui island)
-    worldD: 51207,   // meters north-south
-    waterY: 0.0,     // sea level
-    waterThresh: 2,   // heightmap pixel ≤ this = water (ocean)
-    useRiverMask: true,
-    preset: 'clean',
-    // Start offshore Maliko Gulch, heading west toward Kahului
-    startPos: { x: -5310, z: 22201, heading: Math.PI }
-  }
-};
-
-// Active terrain config — set when switching locations
-let activeTerrainCfg = terrainConfigs.gorge;
-
-// Convenience accessors (used throughout the code)
-function RT_ELEV_MIN() { return activeTerrainCfg.elevMin; }
-function RT_ELEV_MAX() { return activeTerrainCfg.elevMax; }
-function RT_ELEV_RANGE() { return activeTerrainCfg.elevMax - activeTerrainCfg.elevMin; }
-function RT_WORLD_W() { return activeTerrainCfg.worldW; }
-function RT_WORLD_D() { return activeTerrainCfg.worldD; }
-function RT_WATER_Y() { return activeTerrainCfg.waterY; }
-
 // Terrain shader — satellite texture + fog + lighting
 const realTerrainMat = new THREE.ShaderMaterial({
   uniforms: {
