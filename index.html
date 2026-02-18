@@ -127,7 +127,7 @@
 <body>
 
 <!-- Version label: increment on each commit (e.g. v0.51 → v0.52) -->
-<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.52</div>
+<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.53</div>
 
 <button id="controls-toggle" style="display:flex" onclick="toggleControls()">⚙</button>
 
@@ -1246,10 +1246,6 @@ function rebuildTerrain(presetName) {
   if (activeBtn) activeBtn.classList.add('active-preset');
 }
 
-// Build initial terrain
-rebuildTerrain('gorge-real');
-
-
 // ═══════════════════════════
 // PANORAMIC PHOTO BACKGROUND — flat billboard, loaded from file
 // ═══════════════════════════
@@ -1672,6 +1668,9 @@ function getRealTerrainHeight(worldX, worldZ) {
   const idx = (py * d.width + px) * 4;
   return (d.pixels[idx] / 255) * RT_ELEV_RANGE();
 }
+
+// Build initial terrain (must be after all terrain declarations above)
+rebuildTerrain('gorge-real');
 
 // ═══════════════════════════
 // ENVIRONMENT MAP — for foil reflections
