@@ -416,12 +416,6 @@ const presets = {
     swell2Height:0.5, swell2Period:4, swell2Dir:20,
     swell3Height:0, swell3Period:8, swell3Dir:0
   },
-  gorge: {
-    chopHeight:0.3, chopDir:270,
-    swell1Height:0.5, swell1Period:7, swell1Dir:270,
-    swell2Height:0.3, swell2Period:9, swell2Dir:250,
-    swell3Height:0.15, swell3Period:12, swell3Dir:290
-  },
   messy: {
     chopHeight:1.4, chopDir:60,
     swell1Height:2.5, swell1Period:9, swell1Dir:290,
@@ -1143,15 +1137,14 @@ function rebuildTerrain(presetName) {
       const startPos = findRiverStartPosition();
       foil.x = startPos.x; foil.z = startPos.z; foil.heading = startPos.heading;
       foil.speed = 3;
-      applyPreset('gorge');
+      applyPreset('river');
       oceanMat.uniforms.uRiverMask.value = realTerrainRiverMask;
       oceanMat.uniforms.uUseRiverMask.value = 1;
       oceanMat.uniforms.uRiverBounds.value.set(-RT_WORLD_W/2, -RT_WORLD_D/2, RT_WORLD_W/2, RT_WORLD_D/2);
       oceanMat.transparent = true;
       oceanMat.depthWrite = true;
       oceanMat.needsUpdate = true;
-      oceanMesh.scale.set(RT_WORLD_W / OCEAN_SIZE, 1, RT_WORLD_D / OCEAN_SIZE);
-      oceanMesh.position.set(0, RT_WATER_Y, 0);
+      oceanMesh.scale.set(1, 1, 1);
     });
   } else {
     removeRealTerrain();
@@ -2270,11 +2263,11 @@ function animate(){
 
   // Move ocean mesh to follow the foil so you never ride off the edge.
   // Snap to grid-aligned positions to avoid visible popping.
-  // Ocean follows player via SNAP — unless real terrain is active (fixed position)
-  if (!realTerrainMesh) {
+  {
     const SNAP = OCEAN_SIZE * 0.25;
     oceanMesh.position.x = Math.round(foil.x / SNAP) * SNAP;
     oceanMesh.position.z = Math.round(foil.z / SNAP) * SNAP;
+    oceanMesh.position.y = realTerrainMesh ? RT_WATER_Y : 0;
   }
 
   // Terrain ring follows player with larger SNAP grid for parallax
