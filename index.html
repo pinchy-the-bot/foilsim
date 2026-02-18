@@ -1339,7 +1339,8 @@ const terrainConfigs = {
     waterY: 6.0,     // ~30m real elevation → 6m in scene
     waterThresh: 12,  // heightmap pixel ≤ this = water
     useRiverMask: true,
-    preset: 'gorge'
+    preset: 'gorge',
+    startPos: null     // auto-detect from heightmap
   },
   maliko: {
     label: 'Maliko Run, Maui',
@@ -1352,7 +1353,9 @@ const terrainConfigs = {
     waterY: 0.0,     // sea level
     waterThresh: 2,   // heightmap pixel ≤ this = water (ocean)
     useRiverMask: true,
-    preset: 'clean'
+    preset: 'clean',
+    // Start 500m offshore on east side, heading west (downwind run direction)
+    startPos: { x: 6200, z: 3500, heading: Math.PI }
   }
 };
 
@@ -1581,8 +1584,11 @@ function buildRealTerrain() {
   console.log('Real terrain built:', (geoSegX+1)*(geoSegZ+1), 'vertices');
 }
 
-// Find a good starting position in the river on the west side
+// Find a good starting position in the water
 function findRiverStartPosition() {
+  // Use explicit start position if configured
+  if (activeTerrainCfg.startPos) return activeTerrainCfg.startPos;
+
   if (!realTerrainHeightData) return { x: 0, z: 0, heading: 0 };
   const d = realTerrainHeightData;
   const WATER_THRESH = activeTerrainCfg.waterThresh || 12;
