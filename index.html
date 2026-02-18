@@ -127,9 +127,10 @@
 <body>
 
 <!-- Version label: increment on each commit (e.g. v0.51 → v0.52) -->
-<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.55</div>
+<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.56</div>
 
-<button id="controls-toggle" style="display:flex" onclick="toggleControls()">⚙</button>
+<!-- Gear button hidden — use Tab key to toggle controls panel -->
+<button id="controls-toggle" style="display:none" onclick="toggleControls()">⚙</button>
 
 <div id="controls-panel" class="hidden">
   <div class="panel-header">
@@ -262,9 +263,8 @@ function updateVal(el) {
 }
 function toggleControls() {
   const p = document.getElementById('controls-panel');
-  const t = document.getElementById('controls-toggle');
   p.classList.toggle('hidden');
-  t.style.display = p.classList.contains('hidden') ? 'flex' : 'none';
+  // Gear button stays hidden — Tab key is the only toggle
 }
 function getVal(id) { return cachedParams[id]; }
 
