@@ -421,6 +421,15 @@ const presets = {
     swell1Height:2.5, swell1Period:9, swell1Dir:290,
     swell2Height:1.8, swell2Period:7, swell2Dir:190,
     swell3Height:1.2, swell3Period:5.5, swell3Dir:45
+  },
+  gorge: {
+    sunAngle:25, sunDir:180, cloudCover:0.45,
+    chopHeight:0.49, chopDir:0,
+    swell1Height:1.8, swell1Period:5, swell1Dir:82,
+    swell2Height:0.7, swell2Period:10.5, swell2Dir:57,
+    swell3Height:0, swell3Period:8, swell3Dir:0,
+    sbGlide:1, sbPumpPower:1, sbTurnSpeed:1, sbTopSpeed:22,
+    sbBatteryCap:1, sbBatteryDrain:1, sbWaveEnergy:1, sbStability:1, sbDrag:1
   }
 };
 function applyPreset(name, btn) {
@@ -1137,7 +1146,7 @@ function rebuildTerrain(presetName) {
       const startPos = findRiverStartPosition();
       foil.x = startPos.x; foil.z = startPos.z; foil.heading = startPos.heading;
       foil.speed = 3;
-      applyPreset('river');
+      applyPreset('gorge');
       oceanMat.uniforms.uRiverMask.value = realTerrainRiverMask;
       oceanMat.uniforms.uUseRiverMask.value = 1;
       oceanMat.uniforms.uRiverBounds.value.set(-RT_WORLD_W/2, -RT_WORLD_D/2, RT_WORLD_W/2, RT_WORLD_D/2);
