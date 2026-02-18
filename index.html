@@ -127,7 +127,7 @@
 <body>
 
 <!-- Version label: increment on each commit (e.g. v0.51 → v0.52) -->
-<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.53</div>
+<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.54</div>
 
 <button id="controls-toggle" style="display:flex" onclick="toggleControls()">⚙</button>
 
@@ -428,11 +428,11 @@ const presets = {
     swell3Height:1.2, swell3Period:5.5, swell3Dir:45
   },
   gorge: {
-    sunAngle:25, sunDir:180, cloudCover:0.45,
-    chopHeight:0.49, chopDir:0,
-    swell1Height:1.8, swell1Period:5, swell1Dir:82,
-    swell2Height:0.7, swell2Period:10.5, swell2Dir:57,
-    swell3Height:0, swell3Period:8, swell3Dir:0,
+    sunAngle:11, sunDir:110, cloudCover:0.45,
+    chopHeight:0.18, chopDir:0,
+    swell1Height:1.8, swell1Period:5, swell1Dir:297,
+    swell2Height:0.7, swell2Period:10.5, swell2Dir:308,
+    swell3Height:0.5, swell3Period:6, swell3Dir:268,
     sbGlide:1, sbPumpPower:1, sbTurnSpeed:1, sbTopSpeed:22,
     sbBatteryCap:1, sbBatteryDrain:1, sbWaveEnergy:1, sbStability:1, sbDrag:1
   }
@@ -1629,7 +1629,7 @@ function findRiverStartPosition() {
         const worldX = (u - 0.5) * RT_WORLD_W();
         const worldZ = -(v - 0.5) * RT_WORLD_D(); // flip Z
         console.log(`River start found at col ${colPct*100}%: pixel(${col},${midRow}) → world(${worldX.toFixed(0)}, ${worldZ.toFixed(0)})`);
-        return { x: worldX, z: worldZ, heading: 0 }; // heading 0 = east (downriver)
+        return { x: worldX, z: worldZ, heading: Math.PI/2 }; // heading PI/2 = east (+X, downriver)
       }
     }
     console.warn('No river water found, defaulting to center');
@@ -1643,7 +1643,7 @@ function findRiverStartPosition() {
   const worldX = (u - 0.5) * RT_WORLD_W();
   const worldZ = -(v - 0.5) * RT_WORLD_D(); // flip Z
   console.log(`River start: pixel(${targetCol},${midRow}) → world(${worldX.toFixed(0)}, ${worldZ.toFixed(0)})`);
-  return { x: worldX, z: worldZ, heading: 0 }; // heading 0 = east (downriver)
+  return { x: worldX, z: worldZ, heading: Math.PI/2 }; // heading PI/2 = east (+X, downriver)
 }
 
 function removeRealTerrain() {
