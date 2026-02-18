@@ -183,6 +183,7 @@
     <div class="control-row"><span class="control-label">Wave Energy</span><input type="range" id="sbWaveEnergy" min="0.1" max="3.0" value="1.0" step="0.05" oninput="updateVal(this)"><span class="control-value" id="sbWaveEnergy-val">1.00×</span></div>
     <div class="control-row"><span class="control-label">Foil Stability</span><input type="range" id="sbStability" min="0.2" max="3.0" value="1.0" step="0.05" oninput="updateVal(this)"><span class="control-value" id="sbStability-val">1.00×</span></div>
     <div class="control-row"><span class="control-label">Water Drag</span><input type="range" id="sbDrag" min="0.1" max="3.0" value="1.0" step="0.05" oninput="updateVal(this)"><span class="control-value" id="sbDrag-val">1.00×</span></div>
+    <div class="control-row" style="margin-top:6px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="sbFreeCam" onchange="toggleFreeCam(this.checked)" style="width:14px;height:14px;accent-color:#4af;"><span class="control-label" style="flex:1;">Free Camera</span></label></div>
   </div>
   <div class="section">
     <div class="section-title">🏝 Background</div>
@@ -1150,26 +1151,27 @@ function rebuildTerrain(presetName) {
   // We defer ocean/foil setup to a microtask so it runs after all declarations.
   if (preset.useRealTerrain) {
     activeTerrainCfg = terrainConfigs[preset.useRealTerrain] || terrainConfigs.gorge;
-    buildRealTerrain();
     silhouetteMesh.visible = false;
     terrainGroup.visible = false;
-    Promise.resolve().then(() => {
-      const startPos = findRiverStartPosition();
-      foil.x = startPos.x; foil.z = startPos.z; foil.heading = startPos.heading;
-      foil.speed = 3;
-      applyPreset(activeTerrainCfg.preset || 'clean');
-      if (activeTerrainCfg.useRiverMask && realTerrainRiverMask) {
-        oceanMat.uniforms.uRiverMask.value = realTerrainRiverMask;
-        oceanMat.uniforms.uUseRiverMask.value = 1;
-      } else {
-        oceanMat.uniforms.uUseRiverMask.value = 0;
-      }
-      oceanMat.uniforms.uRiverBounds.value.set(-RT_WORLD_W()/2, -RT_WORLD_D()/2, RT_WORLD_W()/2, RT_WORLD_D()/2);
-      oceanMat.transparent = true;
-      oceanMat.depthWrite = true;
-      oceanMat.needsUpdate = true;
-      realTerrainMat.uniforms.uWaterLevel.value = RT_WATER_Y();
-      oceanMesh.scale.set(1, 1, 1);
+    buildRealTerrain(function onTerrainReady() {
+      Promise.resolve().then(() => {
+        const startPos = findRiverStartPosition();
+        foil.x = startPos.x; foil.z = startPos.z; foil.heading = startPos.heading;
+        foil.speed = 3;
+        applyPreset(activeTerrainCfg.preset || 'clean');
+        if (activeTerrainCfg.useRiverMask && realTerrainRiverMask) {
+          oceanMat.uniforms.uRiverMask.value = realTerrainRiverMask;
+          oceanMat.uniforms.uUseRiverMask.value = 1;
+        } else {
+          oceanMat.uniforms.uUseRiverMask.value = 0;
+        }
+        oceanMat.uniforms.uRiverBounds.value.set(-RT_WORLD_W()/2, -RT_WORLD_D()/2, RT_WORLD_W()/2, RT_WORLD_D()/2);
+        oceanMat.transparent = true;
+        oceanMat.depthWrite = true;
+        oceanMat.needsUpdate = true;
+        realTerrainMat.uniforms.uWaterLevel.value = RT_WATER_Y();
+        oceanMesh.scale.set(1, 1, 1);
+      });
     });
   } else {
     removeRealTerrain();
@@ -1481,7 +1483,9 @@ function loadTerrainAssets(cfgName, callback) {
 // Preload gorge assets at page start (non-blocking)
 loadTerrainAssets('gorge', function() {});
 
-function buildRealTerrain() {
+let _terrainReadyCallback = null;
+function buildRealTerrain(onReady) {
+  if (onReady) _terrainReadyCallback = onReady;
   removeRealTerrain();
   const cfgName = activeTerrainCfg === terrainConfigs.gorge ? 'gorge' :
                   activeTerrainCfg === terrainConfigs.maliko ? 'maliko' : null;
@@ -1581,7 +1585,10 @@ function buildRealTerrain() {
   // Store height data for potential physics interaction
   realTerrainHeightData = { pixels, width: canvas.width, height: canvas.height };
 
-  console.log('Real terrain built:', (geoSegX+1)*(geoSegZ+1), 'vertices');
+  console.log('Real terrain built:', (geoSegX+1)*(geoSegZ+1), 'vertices', 'mesh in scene:', scene.children.includes(realTerrainMesh));
+
+  // Notify caller that terrain is ready (handles async asset loading)
+  if (_terrainReadyCallback) { console.log('Calling terrainReady callback'); const cb = _terrainReadyCallback; _terrainReadyCallback = null; cb(); }
 }
 
 // Find a good starting position in the water
@@ -2101,17 +2108,30 @@ document.querySelectorAll('.ride-btn').forEach(btn=>{
 // ═══════════════════════════
 // CAMERA
 // ═══════════════════════════
-const cam={theta:Math.PI*.15,phi:.28,dist:18,drag:false,lx:0,ly:0,pd:0,offsetTheta:0,followSmooth:0.04};
+const cam={theta:Math.PI*.15,phi:.28,dist:18,drag:false,lx:0,ly:0,pd:0,offsetTheta:0,followSmooth:0.04,
+  free:false, panX:0, panY:0, panZ:0, panning:false};
+function toggleFreeCam(on) {
+  cam.free = on;
+  if (!on) { cam.panX = 0; cam.panY = 0; cam.panZ = 0; }
+}
 function updateCamera(){
-  // Smoothly follow behind the foil heading
-  // Target theta = foil heading + PI (behind) + user drag offset
+  if (cam.free) {
+    // Free camera: orbit around pan target, no auto-follow
+    const cx=cam.dist*Math.cos(cam.phi)*Math.sin(cam.theta);
+    const cy=cam.dist*Math.sin(cam.phi);
+    const cz=cam.dist*Math.cos(cam.phi)*Math.cos(cam.theta);
+    const tgt = new THREE.Vector3(foilGroup.position.x+cam.panX, foilGroup.position.y+1+cam.panY, foilGroup.position.z+cam.panZ);
+    camera.position.set(tgt.x+cx,Math.max(tgt.y+cy,0.5),tgt.z+cz);
+    camera.lookAt(tgt);
+    return;
+  }
+  // Normal follow camera
   let target = foil.heading + Math.PI + cam.offsetTheta;
-  // Smooth angle wrap
   let diff = target - cam.theta;
   while(diff > Math.PI) diff -= Math.PI*2;
   while(diff < -Math.PI) diff += Math.PI*2;
   cam.theta += diff * cam.followSmooth;
-  
+
   const cx=cam.dist*Math.cos(cam.phi)*Math.sin(cam.theta);
   const cy=cam.dist*Math.sin(cam.phi);
   const cz=cam.dist*Math.cos(cam.phi)*Math.cos(cam.theta);
@@ -2120,34 +2140,69 @@ function updateCamera(){
   camera.lookAt(tgt);
 }
 
-renderer.domElement.addEventListener('mousedown',e=>{cam.drag=true;cam.lx=e.clientX;cam.ly=e.clientY;});
-window.addEventListener('mouseup',()=>{cam.drag=false;});
+renderer.domElement.addEventListener('mousedown',e=>{
+  if(cam.free && e.button===2){cam.panning=true;cam.lx=e.clientX;cam.ly=e.clientY;return;}
+  cam.drag=true;cam.lx=e.clientX;cam.ly=e.clientY;
+});
+window.addEventListener('mouseup',()=>{cam.drag=false;cam.panning=false;});
 window.addEventListener('mousemove',e=>{
+  if(cam.panning&&cam.free){
+    const dx=e.clientX-cam.lx, dy=e.clientY-cam.ly;
+    const panScale=cam.dist*0.002;
+    const st=Math.sin(cam.theta),ct=Math.cos(cam.theta);
+    cam.panX+=(-dx*ct)*panScale;
+    cam.panZ+=(dx*st)*panScale;
+    cam.panY+=dy*panScale;
+    cam.lx=e.clientX;cam.ly=e.clientY;return;
+  }
   if(!cam.drag)return;
-  cam.offsetTheta-=(e.clientX-cam.lx)*.005;
-  cam.phi=Math.max(.05,Math.min(1.4,cam.phi+(e.clientY-cam.ly)*.005));
+  if(cam.free){
+    cam.theta-=(e.clientX-cam.lx)*.005;
+    cam.phi=Math.max(.01,Math.min(1.56,cam.phi+(e.clientY-cam.ly)*.005));
+  } else {
+    cam.offsetTheta-=(e.clientX-cam.lx)*.005;
+    cam.phi=Math.max(.05,Math.min(1.4,cam.phi+(e.clientY-cam.ly)*.005));
+  }
   cam.lx=e.clientX;cam.ly=e.clientY;
 });
-renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();cam.dist=Math.max(5,Math.min(120,cam.dist*(1+e.deltaY*.001)));},{passive:false});
+renderer.domElement.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const maxDist=cam.free?5000:120, minDist=cam.free?1:5;
+  cam.dist=Math.max(minDist,Math.min(maxDist,cam.dist*(1+e.deltaY*.001)));
+},{passive:false});
+renderer.domElement.addEventListener('contextmenu',e=>{if(cam.free)e.preventDefault();});
 
 renderer.domElement.addEventListener('touchstart',e=>{
   if(e.target.closest('#ride-controls')||e.target.closest('#controls-panel'))return;
   if(e.touches.length===1){cam.drag=true;cam.lx=e.touches[0].clientX;cam.ly=e.touches[0].clientY;}
   else if(e.touches.length===2)cam.pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  else if(e.touches.length===3&&cam.free){cam.panning=true;cam.lx=e.touches[0].clientX;cam.ly=e.touches[0].clientY;}
 },{passive:true});
 renderer.domElement.addEventListener('touchmove',e=>{
   if(e.target.closest('#ride-controls')||e.target.closest('#controls-panel'))return;
   e.preventDefault();
-  if(e.touches.length===1&&cam.drag){
-    cam.offsetTheta-=(e.touches[0].clientX-cam.lx)*.005;
-    cam.phi=Math.max(.05,Math.min(1.4,cam.phi+(e.touches[0].clientY-cam.ly)*.005));
+  if(cam.panning&&cam.free&&e.touches.length>=3){
+    const dx=e.touches[0].clientX-cam.lx,dy=e.touches[0].clientY-cam.ly;
+    const panScale=cam.dist*0.002;
+    const st=Math.sin(cam.theta),ct=Math.cos(cam.theta);
+    cam.panX+=(-dx*ct)*panScale;cam.panZ+=(dx*st)*panScale;cam.panY+=dy*panScale;
+    cam.lx=e.touches[0].clientX;cam.ly=e.touches[0].clientY;
+  }else if(e.touches.length===1&&cam.drag){
+    if(cam.free){
+      cam.theta-=(e.touches[0].clientX-cam.lx)*.005;
+      cam.phi=Math.max(.01,Math.min(1.56,cam.phi+(e.touches[0].clientY-cam.ly)*.005));
+    } else {
+      cam.offsetTheta-=(e.touches[0].clientX-cam.lx)*.005;
+      cam.phi=Math.max(.05,Math.min(1.4,cam.phi+(e.touches[0].clientY-cam.ly)*.005));
+    }
     cam.lx=e.touches[0].clientX;cam.ly=e.touches[0].clientY;
   }else if(e.touches.length===2){
     const nd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-    cam.dist=Math.max(5,Math.min(120,cam.dist*(cam.pd/nd)));cam.pd=nd;
+    const maxDist=cam.free?5000:120,minDist=cam.free?1:5;
+    cam.dist=Math.max(minDist,Math.min(maxDist,cam.dist*(cam.pd/nd)));cam.pd=nd;
   }
 },{passive:false});
-renderer.domElement.addEventListener('touchend',()=>{cam.drag=false;});
+renderer.domElement.addEventListener('touchend',()=>{cam.drag=false;cam.panning=false;});
 
 // ═══════════════════════════
 // MAIN LOOP
@@ -2508,8 +2563,8 @@ function animate(){
 
   foil.prevWH=wH;
 
-  // Camera: slowly return offset to behind-player when not dragging
-  if(!cam.drag) cam.offsetTheta *= 0.97;
+  // Camera: slowly return offset to behind-player when not dragging (skip in free cam)
+  if(!cam.drag && !cam.free) cam.offsetTheta *= 0.97;
   cam.followSmooth = Math.abs(foil.roll) > 0.1 ? 0.08 : 0.04;
   updateCamera();
   // Center sky, clouds, and distant silhouettes on camera
