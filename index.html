@@ -1349,15 +1349,15 @@ const terrainConfigs = {
     heightmap: 'terrain-data/maliko_heightmap_1024.png',
     satellite: 'terrain-data/maliko_satellite_2048.jpg',
     elevMin: 0.0,
-    elevMax: 776.0,
-    worldW: 20800,   // meters east-west
-    worldD: 16698,   // meters north-south
+    elevMax: 3055.5,
+    worldW: 75967,   // meters east-west (full Maui island)
+    worldD: 51207,   // meters north-south
     waterY: 0.0,     // sea level
     waterThresh: 2,   // heightmap pixel ≤ this = water (ocean)
     useRiverMask: true,
     preset: 'clean',
-    // Start at 20.943272, -156.342548 (offshore Maliko Gulch), heading west
-    startPos: { x: 5975, z: 5374, heading: Math.PI }
+    // Start offshore Maliko Gulch, heading west toward Kahului
+    startPos: { x: -5310, z: 22201, heading: Math.PI }
   }
 };
 
