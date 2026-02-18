@@ -188,13 +188,13 @@
   <div class="section">
     <div class="section-title">🏝 Background</div>
     <div class="preset-row" style="margin-bottom:8px;">
-      <button class="preset-btn bg-preset-btn active-preset" data-bg="ocean-islands" onclick="rebuildTerrain('ocean-islands')">Islands</button>
+      <button class="preset-btn bg-preset-btn" data-bg="ocean-islands" onclick="rebuildTerrain('ocean-islands')">Islands</button>
       <button class="preset-btn bg-preset-btn" data-bg="big-sur" onclick="rebuildTerrain('big-sur')">Big Sur</button>
       <button class="preset-btn bg-preset-btn" data-bg="sheltered-bay" onclick="rebuildTerrain('sheltered-bay')">Bay</button>
       <button class="preset-btn bg-preset-btn" data-bg="columbia-gorge" onclick="rebuildTerrain('columbia-gorge')">Gorge</button>
       <button class="preset-btn bg-preset-btn" data-bg="kauai" onclick="rebuildTerrain('kauai')">Kauai</button>
       <button class="preset-btn bg-preset-btn" data-bg="open-ocean" onclick="rebuildTerrain('open-ocean')">Open</button>
-      <button class="preset-btn bg-preset-btn" data-bg="gorge-real" onclick="rebuildTerrain('gorge-real')" style="border-color:rgba(80,220,130,0.35);color:#70d8a0;">Gorge HD</button>
+      <button class="preset-btn bg-preset-btn active-preset" data-bg="gorge-real" onclick="rebuildTerrain('gorge-real')" style="border-color:rgba(80,220,130,0.35);color:#70d8a0;">Gorge HD</button>
       <button class="preset-btn bg-preset-btn" data-bg="maliko-real" onclick="rebuildTerrain('maliko-real')" style="border-color:rgba(255,180,60,0.35);color:#ffb840;">Maliko HD</button>
     </div>
   </div>
@@ -1199,7 +1199,7 @@ function rebuildTerrain(presetName) {
 }
 
 // Build initial terrain
-rebuildTerrain('ocean-islands');
+rebuildTerrain('gorge-real');
 
 
 // ═══════════════════════════
