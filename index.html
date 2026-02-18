@@ -127,7 +127,7 @@
 <body>
 
 <!-- Version label: increment on each commit (e.g. v0.51 → v0.52) -->
-<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.54</div>
+<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.55</div>
 
 <button id="controls-toggle" style="display:flex" onclick="toggleControls()">⚙</button>
 
@@ -173,7 +173,8 @@
     <div class="control-row"><span class="control-label">Period</span><input type="range" id="swell3Period" min="4" max="22" value="16" step="0.5" oninput="updateVal(this)"><span class="control-value" id="swell3Period-val">16.0s</span></div>
     <div class="control-row"><span class="control-label">Direction</span><input type="range" id="swell3Dir" min="0" max="360" value="200" step="1" oninput="updateVal(this)"><span class="control-value" id="swell3Dir-val">200°</span></div>
   </div>
-  <div class="section">
+  <!-- Sandbox controls hidden — values still set by presets via applyPreset() -->
+  <div class="section" style="display:none;">
     <div class="section-title">🏄 Sandbox</div>
     <div class="control-row"><span class="control-label">Glide</span><input type="range" id="sbGlide" min="0.1" max="2.0" value="1.0" step="0.05" oninput="updateVal(this)"><span class="control-value" id="sbGlide-val">1.00×</span></div>
     <div class="control-row"><span class="control-label">Pump Power</span><input type="range" id="sbPumpPower" min="0.2" max="3.0" value="1.0" step="0.05" oninput="updateVal(this)"><span class="control-value" id="sbPumpPower-val">1.00×</span></div>
@@ -231,7 +232,8 @@
 
 <div id="hud-pocket">🤙 In the Pocket!</div>
 
-<div id="ride-controls">
+<!-- Ride controls hidden — keyboard only for now (A/D turn, W pump, S power, Space boost) -->
+<div id="ride-controls" style="display:none;">
   <button class="ride-btn" id="btn-left" data-action="left">◀<span class="btn-label">A / ←</span></button>
   <button class="ride-btn" id="btn-up" data-action="up">▲<span class="btn-label">Pump · W</span></button>
   <button class="ride-btn pump-btn" id="btn-pump" data-action="pump">⚡<span class="btn-label">Boost · Space</span></button>
@@ -429,11 +431,11 @@ const presets = {
   },
   gorge: {
     sunAngle:11, sunDir:110, cloudCover:0.45,
-    chopHeight:0.18, chopDir:0,
-    swell1Height:1.8, swell1Period:5, swell1Dir:297,
-    swell2Height:0.7, swell2Period:10.5, swell2Dir:308,
+    chopHeight:0.49, chopDir:0,
+    swell1Height:2.3, swell1Period:5, swell1Dir:297,
+    swell2Height:0.7, swell2Period:4.5, swell2Dir:347,
     swell3Height:0.5, swell3Period:6, swell3Dir:268,
-    sbGlide:1, sbPumpPower:1, sbTurnSpeed:1, sbTopSpeed:22,
+    sbGlide:0.8, sbPumpPower:1, sbTurnSpeed:1, sbTopSpeed:22,
     sbBatteryCap:1, sbBatteryDrain:1, sbWaveEnergy:1, sbStability:1, sbDrag:1
   }
 };
