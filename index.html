@@ -127,7 +127,7 @@
 <body>
 
 <!-- Version label: increment on each commit (e.g. v0.51 → v0.52) -->
-<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.51</div>
+<div id="version-label" style="position:fixed;top:8px;left:10px;z-index:90;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,60,60,0.85);pointer-events:none;user-select:none;">v0.52</div>
 
 <button id="controls-toggle" style="display:flex" onclick="toggleControls()">⚙</button>
 
@@ -974,6 +974,7 @@ let realTerrainHeightData = null;
 let realTerrainSatTex = null;
 let realTerrainHmImg = null;
 let realTerrainRiverMask = null; // THREE.CanvasTexture — white=water, black=land
+let _terrainReadyCallback = null; // callback for async terrain loading
 
 // ═══════════════════════════
 // REAL TERRAIN — per-location configurations (must be before rebuildTerrain)
@@ -1486,7 +1487,6 @@ function loadTerrainAssets(cfgName, callback) {
 // Preload gorge assets at page start (non-blocking)
 loadTerrainAssets('gorge', function() {});
 
-let _terrainReadyCallback = null;
 function buildRealTerrain(onReady) {
   if (onReady) _terrainReadyCallback = onReady;
   removeRealTerrain();
