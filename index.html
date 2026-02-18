@@ -194,6 +194,7 @@
       <button class="preset-btn bg-preset-btn" data-bg="kauai" onclick="rebuildTerrain('kauai')">Kauai</button>
       <button class="preset-btn bg-preset-btn" data-bg="open-ocean" onclick="rebuildTerrain('open-ocean')">Open</button>
       <button class="preset-btn bg-preset-btn" data-bg="gorge-real" onclick="rebuildTerrain('gorge-real')" style="border-color:rgba(80,220,130,0.35);color:#70d8a0;">Gorge HD</button>
+      <button class="preset-btn bg-preset-btn" data-bg="maliko-real" onclick="rebuildTerrain('maliko-real')" style="border-color:rgba(255,180,60,0.35);color:#ffb840;">Maliko HD</button>
     </div>
   </div>
   <div class="section">
@@ -1104,9 +1105,16 @@ const bgPresets = {
   'gorge-real': {
     label: 'Gorge HD',
     maxHeight: 120,
-    useRealTerrain: true,
+    useRealTerrain: 'gorge',
     waterStyle: 'normal',
-    cliffs: []  // no procedural cliffs — real terrain replaces them
+    cliffs: []
+  },
+  'maliko-real': {
+    label: 'Maliko HD',
+    maxHeight: 120,
+    useRealTerrain: 'maliko',
+    waterStyle: 'normal',
+    cliffs: []
   }
 };
 
@@ -1136,11 +1144,12 @@ function rebuildTerrain(presetName) {
     silhouetteMesh.visible = true;
   }
 
-  // Real terrain toggle (Gorge HD)
+  // Real terrain toggle
   // Note: foil, oceanMat, oceanMesh are const-declared later in the file.
   // At initial page load, rebuildTerrain('ocean-islands') runs before those exist.
   // We defer ocean/foil setup to a microtask so it runs after all declarations.
   if (preset.useRealTerrain) {
+    activeTerrainCfg = terrainConfigs[preset.useRealTerrain] || terrainConfigs.gorge;
     buildRealTerrain();
     silhouetteMesh.visible = false;
     terrainGroup.visible = false;
@@ -1148,13 +1157,18 @@ function rebuildTerrain(presetName) {
       const startPos = findRiverStartPosition();
       foil.x = startPos.x; foil.z = startPos.z; foil.heading = startPos.heading;
       foil.speed = 3;
-      applyPreset('gorge');
-      oceanMat.uniforms.uRiverMask.value = realTerrainRiverMask;
-      oceanMat.uniforms.uUseRiverMask.value = 1;
-      oceanMat.uniforms.uRiverBounds.value.set(-RT_WORLD_W/2, -RT_WORLD_D/2, RT_WORLD_W/2, RT_WORLD_D/2);
+      applyPreset(activeTerrainCfg.preset || 'clean');
+      if (activeTerrainCfg.useRiverMask && realTerrainRiverMask) {
+        oceanMat.uniforms.uRiverMask.value = realTerrainRiverMask;
+        oceanMat.uniforms.uUseRiverMask.value = 1;
+      } else {
+        oceanMat.uniforms.uUseRiverMask.value = 0;
+      }
+      oceanMat.uniforms.uRiverBounds.value.set(-RT_WORLD_W()/2, -RT_WORLD_D()/2, RT_WORLD_W()/2, RT_WORLD_D()/2);
       oceanMat.transparent = true;
       oceanMat.depthWrite = true;
       oceanMat.needsUpdate = true;
+      realTerrainMat.uniforms.uWaterLevel.value = RT_WATER_Y();
       oceanMesh.scale.set(1, 1, 1);
     });
   } else {
@@ -1310,15 +1324,48 @@ function buildPanoCylinder() { buildPanoBackdrop(); }
 function removePanoCylinder() { removePanoBackdrop(); }
 
 // ═══════════════════════════
-// REAL TERRAIN — heightmap + satellite imagery (Gorge HD)
+// REAL TERRAIN — heightmap + satellite imagery
 // ═══════════════════════════
-// DEM parameters from our processing
-const RT_ELEV_MIN = 24.0;
-const RT_ELEV_MAX = 1090.1;
-const RT_ELEV_RANGE = RT_ELEV_MAX - RT_ELEV_MIN;
-const RT_WORLD_W = 14382;  // meters east-west
-const RT_WORLD_D = 11054;  // meters north-south
-const RT_WATER_Y = (30 - RT_ELEV_MIN) / RT_ELEV_RANGE * RT_ELEV_RANGE; // ~6m in scene
+// Per-location terrain configurations
+const terrainConfigs = {
+  gorge: {
+    label: 'Columbia River Gorge',
+    heightmap: 'terrain-data/gorge_heightmap_1024.png',
+    satellite: 'terrain-data/gorge_satellite_2048.jpg',
+    elevMin: 24.0,
+    elevMax: 1090.1,
+    worldW: 14382,   // meters east-west
+    worldD: 11054,   // meters north-south
+    waterY: 6.0,     // ~30m real elevation → 6m in scene
+    waterThresh: 12,  // heightmap pixel ≤ this = water
+    useRiverMask: true,
+    preset: 'gorge'
+  },
+  maliko: {
+    label: 'Maliko Run, Maui',
+    heightmap: 'terrain-data/maliko_heightmap_1024.png',
+    satellite: 'terrain-data/maliko_satellite_2048.jpg',
+    elevMin: 0.0,
+    elevMax: 776.0,
+    worldW: 20800,   // meters east-west
+    worldD: 16698,   // meters north-south
+    waterY: 0.0,     // sea level
+    waterThresh: 2,   // heightmap pixel ≤ this = water (ocean)
+    useRiverMask: true,
+    preset: 'clean'
+  }
+};
+
+// Active terrain config — set when switching locations
+let activeTerrainCfg = terrainConfigs.gorge;
+
+// Convenience accessors (used throughout the code)
+function RT_ELEV_MIN() { return activeTerrainCfg.elevMin; }
+function RT_ELEV_MAX() { return activeTerrainCfg.elevMax; }
+function RT_ELEV_RANGE() { return activeTerrainCfg.elevMax - activeTerrainCfg.elevMin; }
+function RT_WORLD_W() { return activeTerrainCfg.worldW; }
+function RT_WORLD_D() { return activeTerrainCfg.worldD; }
+function RT_WATER_Y() { return activeTerrainCfg.waterY; }
 
 // Terrain shader — satellite texture + fog + lighting
 const realTerrainMat = new THREE.ShaderMaterial({
@@ -1328,7 +1375,7 @@ const realTerrainMat = new THREE.ShaderMaterial({
     uCamPos:      { value: new THREE.Vector3() },
     uFogColor:    { value: new THREE.Color(0.55, 0.7, 0.85) },
     uFogSunColor: { value: new THREE.Color(0.8, 0.75, 0.6) },
-    uWaterLevel:  { value: RT_WATER_Y }
+    uWaterLevel:  { value: RT_WATER_Y() }
   },
   vertexShader: `
     varying vec3 vWorldPos;
@@ -1382,40 +1429,70 @@ const realTerrainMat = new THREE.ShaderMaterial({
 realTerrainMat.transparent = true;
 realTerrainMat.depthWrite = true;
 
-// Load terrain assets at page load (non-blocking)
-{
+// Asset cache — keyed by terrain config name (gorge, maliko, etc.)
+const terrainAssetCache = {};
+
+// Load terrain assets on demand for a given config
+function loadTerrainAssets(cfgName, callback) {
+  if (terrainAssetCache[cfgName]) {
+    // Already loaded
+    callback(terrainAssetCache[cfgName]);
+    return;
+  }
+
+  const cfg = terrainConfigs[cfgName];
+  if (!cfg) { console.warn('Unknown terrain config:', cfgName); return; }
+
+  const entry = { satTex: null, hmImg: null };
+  let loaded = 0;
+  function check() {
+    loaded++;
+    if (loaded === 2) {
+      terrainAssetCache[cfgName] = entry;
+      console.log(`Terrain assets loaded: ${cfg.label}`);
+      callback(entry);
+    }
+  }
+
   const tLoader = new THREE.TextureLoader();
-  tLoader.load('terrain-data/gorge_satellite_2048.jpg', function(tex) {
+  tLoader.load(cfg.satellite, function(tex) {
     tex.encoding = THREE.sRGBEncoding;
     tex.minFilter = THREE.LinearMipmapLinearFilter;
     tex.magFilter = THREE.LinearFilter;
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    realTerrainSatTex = tex;
-    console.log('Gorge satellite texture loaded');
-    checkRealTerrainReady();
+    entry.satTex = tex;
+    console.log(`Satellite loaded: ${cfg.label}`);
+    check();
   });
 
   const hmImg = new Image();
   hmImg.onload = function() {
-    realTerrainHmImg = hmImg;
-    console.log('Gorge heightmap loaded:', hmImg.width, 'x', hmImg.height);
-    checkRealTerrainReady();
+    entry.hmImg = hmImg;
+    console.log(`Heightmap loaded: ${cfg.label} (${hmImg.width}x${hmImg.height})`);
+    check();
   };
-  hmImg.onerror = function() { console.warn('Gorge heightmap load failed'); };
-  hmImg.src = 'terrain-data/gorge_heightmap_1024.png';
+  hmImg.onerror = function() { console.warn(`Heightmap load failed: ${cfg.label}`); };
+  hmImg.src = cfg.heightmap;
 }
 
-function checkRealTerrainReady() {
-  if (realTerrainSatTex && realTerrainHmImg) {
-    realTerrainReady = true;
-    console.log('Real terrain assets ready');
-    if (activeBgPreset === 'gorge-real') buildRealTerrain();
-  }
-}
+// Preload gorge assets at page start (non-blocking)
+loadTerrainAssets('gorge', function() {});
 
 function buildRealTerrain() {
   removeRealTerrain();
-  if (!realTerrainReady) return;
+  const cfgName = activeTerrainCfg === terrainConfigs.gorge ? 'gorge' :
+                  activeTerrainCfg === terrainConfigs.maliko ? 'maliko' : null;
+  if (!cfgName) return;
+
+  const assets = terrainAssetCache[cfgName];
+  if (!assets) {
+    // Assets still loading — will be called again when ready
+    loadTerrainAssets(cfgName, function() { buildRealTerrain(); });
+    return;
+  }
+
+  realTerrainSatTex = assets.satTex;
+  realTerrainHmImg = assets.hmImg;
 
   // Extract elevation data from heightmap
   const canvas = document.createElement('canvas');
@@ -1426,7 +1503,7 @@ function buildRealTerrain() {
   const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
   // ── Generate river mask: white = water, black = land ──
-  const WATER_THRESH = 12; // heightmap pixel value (~50m elev, covers river + low banks)
+  const WATER_THRESH = activeTerrainCfg.waterThresh || 12;
   const FEATHER = 4;       // pixels of edge softening
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = canvas.width;
@@ -1467,7 +1544,7 @@ function buildRealTerrain() {
   const geoSegX = Math.floor((canvas.width - 1) / step);
   const geoSegZ = Math.floor((canvas.height - 1) / step);
 
-  const geometry = new THREE.PlaneGeometry(RT_WORLD_W, RT_WORLD_D, geoSegX, geoSegZ);
+  const geometry = new THREE.PlaneGeometry(RT_WORLD_W(), RT_WORLD_D(), geoSegX, geoSegZ);
   geometry.rotateX(-Math.PI / 2);
 
   const positions = geometry.attributes.position.array;
@@ -1479,7 +1556,7 @@ function buildRealTerrain() {
       const py = Math.min(Math.floor((i / geoSegZ) * (canvas.height - 1)), canvas.height - 1);
       const pixelIndex = (py * canvas.width + px) * 4;
       const heightValue = pixels[pixelIndex] / 255;
-      positions[vertexIndex * 3 + 1] = heightValue * RT_ELEV_RANGE;
+      positions[vertexIndex * 3 + 1] = heightValue * RT_ELEV_RANGE();
     }
   }
 
@@ -1508,7 +1585,7 @@ function buildRealTerrain() {
 function findRiverStartPosition() {
   if (!realTerrainHeightData) return { x: 0, z: 0, heading: 0 };
   const d = realTerrainHeightData;
-  const WATER_THRESH = 12;
+  const WATER_THRESH = activeTerrainCfg.waterThresh || 12;
 
   // Scan at ~20% from the west edge (pixel column ~205 of 1024)
   const targetCol = Math.floor(d.width * 0.20);
@@ -1537,8 +1614,8 @@ function findRiverStartPosition() {
         const midRow = waterRows[Math.floor(waterRows.length / 2)];
         const u = col / (d.width - 1);
         const v = midRow / (d.height - 1);
-        const worldX = (u - 0.5) * RT_WORLD_W;
-        const worldZ = -(v - 0.5) * RT_WORLD_D; // flip Z
+        const worldX = (u - 0.5) * RT_WORLD_W();
+        const worldZ = -(v - 0.5) * RT_WORLD_D(); // flip Z
         console.log(`River start found at col ${colPct*100}%: pixel(${col},${midRow}) → world(${worldX.toFixed(0)}, ${worldZ.toFixed(0)})`);
         return { x: worldX, z: worldZ, heading: 0 }; // heading 0 = east (downriver)
       }
@@ -1551,8 +1628,8 @@ function findRiverStartPosition() {
   const midRow = waterRows[Math.floor(waterRows.length / 2)];
   const u = targetCol / (d.width - 1);
   const v = midRow / (d.height - 1);
-  const worldX = (u - 0.5) * RT_WORLD_W;
-  const worldZ = -(v - 0.5) * RT_WORLD_D; // flip Z
+  const worldX = (u - 0.5) * RT_WORLD_W();
+  const worldZ = -(v - 0.5) * RT_WORLD_D(); // flip Z
   console.log(`River start: pixel(${targetCol},${midRow}) → world(${worldX.toFixed(0)}, ${worldZ.toFixed(0)})`);
   return { x: worldX, z: worldZ, heading: 0 }; // heading 0 = east (downriver)
 }
@@ -1571,13 +1648,13 @@ function getRealTerrainHeight(worldX, worldZ) {
   const d = realTerrainHeightData;
   const localX = worldX - realTerrainMesh.position.x;
   const localZ = worldZ - realTerrainMesh.position.z;
-  const u = (localX / RT_WORLD_W) + 0.5;
-  const v = 1.0 - ((localZ / RT_WORLD_D) + 0.5); // flip Z to match heightmap rows
+  const u = (localX / RT_WORLD_W()) + 0.5;
+  const v = 1.0 - ((localZ / RT_WORLD_D()) + 0.5); // flip Z to match heightmap rows
   if (u < 0 || u > 1 || v < 0 || v > 1) return null;
   const px = Math.floor(u * (d.width - 1));
   const py = Math.floor(v * (d.height - 1));
   const idx = (py * d.width + px) * 4;
-  return (d.pixels[idx] / 255) * RT_ELEV_RANGE;
+  return (d.pixels[idx] / 255) * RT_ELEV_RANGE();
 }
 
 // ═══════════════════════════
@@ -1622,7 +1699,7 @@ const oceanMat = new THREE.ShaderMaterial({
     uDeepColor:{value:new THREE.Color(0,.04,.12)},uShallowColor:{value:new THREE.Color(0,.15,.3)},uFoamColor:{value:new THREE.Color(.85,.9,.95)},
     uFogColor:{value:new THREE.Color(.55,.7,.85)},uFogSunColor:{value:new THREE.Color(.8,.75,.6)},
     uRiverMask:{value:null},uUseRiverMask:{value:0},
-    uRiverBounds:{value:new THREE.Vector4(-RT_WORLD_W/2, -RT_WORLD_D/2, RT_WORLD_W/2, RT_WORLD_D/2)},
+    uRiverBounds:{value:new THREE.Vector4(-RT_WORLD_W()/2, -RT_WORLD_D()/2, RT_WORLD_W()/2, RT_WORLD_D()/2)},
   },
   vertexShader: `
     precision highp float;
@@ -2180,7 +2257,7 @@ function animate(){
   foil.heading -= turnFromRoll * dt;
 
   let wH=getWaveHeight(foil.x,foil.z,t);
-  if (realTerrainMesh) wH += RT_WATER_Y;
+  if (realTerrainMesh) wH += RT_WATER_Y();
   const slope=getWaveSlope(foil.x,foil.z,t);
   const mx=Math.sin(foil.heading),mz=Math.cos(foil.heading);
   const slopeDot=mx*slope.dhdx+mz*slope.dhdz;
@@ -2264,7 +2341,7 @@ function animate(){
   // Land collision (Gorge HD) — stall if foil hits shore
   if (realTerrainMesh && realTerrainHeightData) {
     const terrH = getRealTerrainHeight(foil.x, foil.z);
-    if (terrH !== null && terrH > RT_WATER_Y + 3) {
+    if (terrH !== null && terrH > RT_WATER_Y() + 3) {
       // On land — push back and kill speed
       foil.x -= mx * foil.speed * dt;
       foil.z -= mz * foil.speed * dt;
@@ -2278,7 +2355,7 @@ function animate(){
     const SNAP = OCEAN_SIZE * 0.25;
     oceanMesh.position.x = Math.round(foil.x / SNAP) * SNAP;
     oceanMesh.position.z = Math.round(foil.z / SNAP) * SNAP;
-    oceanMesh.position.y = realTerrainMesh ? RT_WATER_Y : 0;
+    oceanMesh.position.y = realTerrainMesh ? RT_WATER_Y() : 0;
   }
 
   // Terrain ring follows player with larger SNAP grid for parallax
